@@ -1,0 +1,59 @@
+{
+    "name": "laradbchat/laradbchat",
+    "description": "Transform your Laravel database into a smart assistant using natural language queries",
+    "keywords": [
+        "laravel",
+        "database",
+        "natural-language",
+        "sql",
+        "ai",
+        "ollama",
+        "openai",
+        "claude",
+        "text-to-sql"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "LaraDBChat",
+            "email": "hello@laradbchat.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "guzzlehttp/guzzle": "^7.0",
+        "illuminate/contracts": "^10.0|^11.0",
+        "illuminate/database": "^10.0|^11.0",
+        "illuminate/support": "^10.0|^11.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0",
+        "phpunit/phpunit": "^10.0",
+        "mockery/mockery": "^1.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "LaraDBChat\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "LaraDBChat\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "LaraDBChat\\LaraDBChatServiceProvider"
+            ],
+            "aliases": {
+                "LaraDBChat": "LaraDBChat\\Facades\\LaraDBChat"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
