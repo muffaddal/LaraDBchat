@@ -3,6 +3,7 @@
 namespace LaraDBChat;
 
 use Illuminate\Support\ServiceProvider;
+use LaraDBChat\Console\Commands\AddDocumentationCommand;
 use LaraDBChat\Console\Commands\AskCommand;
 use LaraDBChat\Console\Commands\InstallCommand;
 use LaraDBChat\Console\Commands\TrainCommand;
@@ -155,6 +156,7 @@ class LaraDBChatServiceProvider extends ServiceProvider
                 InstallCommand::class,
                 TrainCommand::class,
                 AskCommand::class,
+                AddDocumentationCommand::class,
             ]);
         }
     }

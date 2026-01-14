@@ -25,6 +25,47 @@ class PromptBuilder
     }
 
     /**
+     * Build a complete prompt with documentation and sample context.
+     */
+    public function buildWithContext(
+        string $question,
+        array $schemaContext,
+        array $documentation,
+        array $samples,
+        string $dialect = 'mysql'
+    ): string {
+        $prompt = $this->buildSystemContext($dialect);
+
+        // Add business documentation (CRITICAL for understanding domain)
+        if (!empty($documentation)) {
+            $prompt .= "\n### Business Context & Documentation\n\n";
+            $prompt .= "IMPORTANT: Use this information to understand the database structure:\n\n";
+            foreach ($documentation as $doc) {
+                $prompt .= $doc['content'] . "\n\n";
+            }
+        }
+
+        $prompt .= $this->buildSchemaSection($schemaContext);
+
+        // Add retrieved sample queries (most relevant to this question)
+        if (!empty($samples)) {
+            $prompt .= "\n### Similar Query Examples\n\n";
+            foreach ($samples as $sample) {
+                if (isset($sample['metadata']['question']) && isset($sample['metadata']['sql'])) {
+                    $prompt .= "Question: {$sample['metadata']['question']}\n";
+                    $prompt .= "SQL: {$sample['metadata']['sql']}\n\n";
+                }
+            }
+        }
+
+        // Add default examples
+        $prompt .= $this->buildExamplesSection();
+        $prompt .= $this->buildQuestionSection($question);
+
+        return $prompt;
+    }
+
+    /**
      * Build the system context section.
      */
     protected function buildSystemContext(string $dialect): string
@@ -56,33 +97,10 @@ PROMPT;
     protected function getDialectInstructions(string $dialect): string
     {
         return match ($dialect) {
-            'mysql' => <<<SQL
-MySQL-specific notes:
-- Use backticks for identifiers with special characters
-- Use DATE_SUB/DATE_ADD for date arithmetic
-- Use IFNULL() for null handling
-- Use LIMIT for row limiting
-SQL,
-            'pgsql' => <<<SQL
-PostgreSQL-specific notes:
-- Use double quotes for identifiers with special characters
-- Use INTERVAL for date arithmetic
-- Use COALESCE() for null handling
-- Use LIMIT/OFFSET for pagination
-SQL,
-            'sqlite' => <<<SQL
-SQLite-specific notes:
-- Use date() and datetime() functions for date handling
-- Use IFNULL() or COALESCE() for null handling
-- Use LIMIT for row limiting
-SQL,
-            'sqlsrv' => <<<SQL
-SQL Server-specific notes:
-- Use square brackets for identifiers with special characters
-- Use DATEADD/DATEDIFF for date arithmetic
-- Use ISNULL() or COALESCE() for null handling
-- Use TOP or OFFSET-FETCH for row limiting
-SQL,
+            'mysql' => "MySQL-specific notes:\n- Use backticks for identifiers with special characters\n- Use DATE_SUB/DATE_ADD for date arithmetic\n- Use IFNULL() for null handling\n- Use LIMIT for row limiting",
+            'pgsql' => "PostgreSQL-specific notes:\n- Use double quotes for identifiers with special characters\n- Use INTERVAL for date arithmetic\n- Use COALESCE() for null handling\n- Use LIMIT/OFFSET for pagination",
+            'sqlite' => "SQLite-specific notes:\n- Use date() and datetime() functions for date handling\n- Use IFNULL() or COALESCE() for null handling\n- Use LIMIT for row limiting",
+            'sqlsrv' => "SQL Server-specific notes:\n- Use square brackets for identifiers with special characters\n- Use DATEADD/DATEDIFF for date arithmetic\n- Use ISNULL() or COALESCE() for null handling\n- Use TOP or OFFSET-FETCH for row limiting",
             default => '',
         };
     }

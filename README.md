@@ -110,10 +110,68 @@ Before asking questions, train LaraDBChat on your database schema:
 php artisan laradbchat:train
 ```
 
-To retrain from scratch:
+#### Deep Analysis (Recommended)
+
+For better accuracy, use deep analysis which examines your Laravel Models and Migrations:
 
 ```bash
+php artisan laradbchat:train --deep
+```
+
+This extracts:
+- Model relationships (belongsTo, hasMany, etc.)
+- Scopes and constants
+- Foreign key constraints
+- Enum values from migrations
+
+#### Training Options
+
+```bash
+# Fresh training (clears existing data)
 php artisan laradbchat:train --fresh
+
+# Deep analysis with models and migrations
+php artisan laradbchat:train --deep
+
+# Skip specific analysis
+php artisan laradbchat:train --skip-models
+php artisan laradbchat:train --skip-migrations
+
+# Show extracted schema
+php artisan laradbchat:train --show-schema
+```
+
+### Adding Business Documentation
+
+Improve accuracy by adding context about your database:
+
+```bash
+# Interactive documentation
+php artisan laradbchat:add-docs
+
+# Add sample queries
+php artisan laradbchat:add-docs --sample
+
+# Import from JSON file
+php artisan laradbchat:add-docs --file=training.json
+```
+
+Example JSON training file:
+```json
+{
+    "documentation": [
+        {
+            "title": "Order Status Values",
+            "content": "The status column can be: pending, confirmed, shipped, delivered"
+        }
+    ],
+    "samples": [
+        {
+            "question": "Show pending orders",
+            "sql": "SELECT * FROM orders WHERE status = 'pending'"
+        }
+    ]
+}
 ```
 
 ### Artisan Commands

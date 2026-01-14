@@ -64,11 +64,12 @@ class SchemaExtractor
 
     protected function getMySQLTables($connection): array
     {
-        $database = $connection->getDatabaseName();
         $tables = $connection->select("SHOW TABLES");
 
-        return array_map(function ($table) use ($database) {
-            return (array) $table;
+        return array_map(function ($table) {
+            // SHOW TABLES returns object with dynamic column name like "Tables_in_dbname"
+            $values = array_values((array) $table);
+            return $values[0] ?? '';
         }, $tables);
     }
 

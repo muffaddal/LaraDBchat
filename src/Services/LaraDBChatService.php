@@ -96,10 +96,18 @@ class LaraDBChatService
             $schemaContext = array_slice($schemaContext, 0, 10);
         }
 
-        // Build the prompt
-        $prompt = $this->promptBuilder->build(
+        // Find relevant documentation
+        $documentation = $this->embeddingStore->findSimilar($question, 'documentation', 3);
+
+        // Find similar sample queries
+        $samples = $this->embeddingStore->findSimilar($question, 'sample', 5);
+
+        // Build the prompt with all context
+        $prompt = $this->promptBuilder->buildWithContext(
             $question,
             $schemaContext,
+            $documentation,
+            $samples,
             $this->schemaExtractor->getDriver()
         );
 
@@ -158,6 +166,22 @@ class LaraDBChatService
     public function addTrainingData(string $type, string $identifier, string $content, array $metadata = []): void
     {
         $this->embeddingStore->store($type, $identifier, $content, $metadata);
+    }
+
+    /**
+     * Add business documentation to help the LLM understand your domain.
+     * This is crucial for accurate query generation.
+     */
+    public function addDocumentation(string $title, string $content): self
+    {
+        $this->embeddingStore->store(
+            'documentation',
+            md5($title),
+            "## {$title}\n\n{$content}",
+            ['title' => $title]
+        );
+
+        return $this;
     }
 
     /**
