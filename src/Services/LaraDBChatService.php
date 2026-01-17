@@ -171,13 +171,17 @@ class LaraDBChatService
     /**
      * Add business documentation to help the LLM understand your domain.
      * This is crucial for accurate query generation.
+     * Automatically chunks large content to handle embedding model limits.
      */
     public function addDocumentation(string $title, string $content): self
     {
-        $this->embeddingStore->store(
+        $fullContent = "## {$title}\n\n{$content}";
+
+        // Use chunked storage to handle large documentation
+        $this->embeddingStore->storeChunked(
             'documentation',
             md5($title),
-            "## {$title}\n\n{$content}",
+            $fullContent,
             ['title' => $title]
         );
 

@@ -272,20 +272,40 @@ class TrainCommand extends Command
                 } else {
                     $this->line("Found " . count($models) . " models.");
 
+                    $successCount = 0;
+                    $errorCount = 0;
+
                     foreach ($models as $model) {
-                        $doc = $analyzer->generateModelDocumentation($model);
-                        $service->addDocumentation(
-                            "Model: {$model['model']}",
-                            $doc
-                        );
+                        try {
+                            $doc = $analyzer->generateModelDocumentation($model);
+                            $service->addDocumentation(
+                                "Model: {$model['model']}",
+                                $doc
+                            );
+                            $successCount++;
+                        } catch (\Exception $e) {
+                            $errorCount++;
+                            if ($this->getOutput()->isVerbose()) {
+                                $this->warn("  Failed to add {$model['model']}: {$e->getMessage()}");
+                            }
+                        }
                     }
 
-                    $this->info("Model documentation added successfully!");
+                    if ($successCount > 0) {
+                        $this->info("Model documentation added: {$successCount} models (with auto-chunking for large content)");
+                    }
+                    if ($errorCount > 0) {
+                        $this->warn("  {$errorCount} models failed to process");
+                    }
 
                     // Generate relationship summary
-                    $relationshipDoc = $this->generateRelationshipSummary($models);
-                    if ($relationshipDoc) {
-                        $service->addDocumentation('Table Relationships Summary', $relationshipDoc);
+                    try {
+                        $relationshipDoc = $this->generateRelationshipSummary($models);
+                        if ($relationshipDoc) {
+                            $service->addDocumentation('Table Relationships Summary', $relationshipDoc);
+                        }
+                    } catch (\Exception $e) {
+                        $this->warn("  Relationship summary failed: {$e->getMessage()}");
                     }
                 }
             } catch (\Exception $e) {
@@ -306,16 +326,25 @@ class TrainCommand extends Command
                     $this->line("Found " . count($migrations) . " migrations.");
 
                     // Generate enum documentation
-                    $enumDoc = $this->generateEnumDocumentation($migrations);
-                    if ($enumDoc) {
-                        $service->addDocumentation('Enum Values and Status Fields', $enumDoc);
-                        $this->info("Enum documentation added successfully!");
+                    try {
+                        $enumDoc = $this->generateEnumDocumentation($migrations);
+                        if ($enumDoc) {
+                            $service->addDocumentation('Enum Values and Status Fields', $enumDoc);
+                            $this->info("Enum documentation added successfully!");
+                        }
+                    } catch (\Exception $e) {
+                        $this->warn("  Enum documentation failed: {$e->getMessage()}");
                     }
 
                     // Generate foreign key documentation
-                    $fkDoc = $analyzer->generateMigrationDocumentation($migrations);
-                    if ($fkDoc) {
-                        $service->addDocumentation('Foreign Key Relationships', $fkDoc);
+                    try {
+                        $fkDoc = $analyzer->generateMigrationDocumentation($migrations);
+                        if ($fkDoc) {
+                            $service->addDocumentation('Foreign Key Relationships', $fkDoc);
+                            $this->info("Foreign key documentation added successfully!");
+                        }
+                    } catch (\Exception $e) {
+                        $this->warn("  Foreign key documentation failed: {$e->getMessage()}");
                     }
                 }
             } catch (\Exception $e) {

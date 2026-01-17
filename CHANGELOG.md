@@ -5,6 +5,22 @@ All notable changes to LaraDBChat will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-01-17
+
+### Added
+
+- **Automatic Content Chunking**: Large content (models, migrations, documentation) is now automatically split into overlapping chunks
+  - Handles embedding model context length limits (e.g., nomic-embed-text ~8k tokens)
+  - Configurable `max_chunk_size` and `chunk_overlap` settings
+  - Smart chunk boundaries at paragraphs, newlines, or sentences
+  - Individual model processing with graceful error handling
+
+### Changed
+
+- `addDocumentation()` now uses `storeChunked()` for automatic chunking
+- Improved error handling in model/migration analysis with per-item try/catch
+- Better progress reporting during training
+
 ## [1.1.0] - 2025-01-17
 
 ### Added

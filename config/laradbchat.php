@@ -191,6 +191,13 @@ return [
 
         // Minimum similarity threshold (0-1)
         'similarity_threshold' => env('LARADBCHAT_SIMILARITY_THRESHOLD', 0.3),
+
+        // Maximum characters per chunk for embedding (for large content)
+        // Most embedding models have ~8192 token limit, ~4 chars/token = ~6000 chars safe limit
+        'max_chunk_size' => env('LARADBCHAT_MAX_CHUNK_SIZE', 6000),
+
+        // Overlap between chunks to maintain context
+        'chunk_overlap' => env('LARADBCHAT_CHUNK_OVERLAP', 200),
     ],
 
     /*
