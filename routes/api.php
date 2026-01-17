@@ -6,9 +6,6 @@ use LaraDBChat\Http\Controllers\LaraDBChatController;
 $prefix = config('laradbchat.api.prefix', 'api/laradbchat');
 $middleware = config('laradbchat.api.middleware', ['api']);
 
-// Remove 'api/' prefix since we're already in API routes
-$prefix = preg_replace('/^api\//', '', $prefix);
-
 Route::prefix($prefix)
     ->middleware($middleware)
     ->group(function () {

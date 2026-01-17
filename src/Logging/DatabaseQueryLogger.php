@@ -7,11 +7,15 @@ use Illuminate\Support\Facades\DB;
 class DatabaseQueryLogger implements QueryLoggerInterface
 {
     protected string $table = 'laradbchat_query_logs';
-    protected ?string $connection;
+    protected ?string $storageConnection;
 
-    public function __construct(?string $connection = null)
+    public function __construct(?string $storageConnection = null)
     {
-        $this->connection = $connection;
+        // Storage connection: explicit > storage config > main connection > default
+        $this->storageConnection = $storageConnection
+            ?? config('laradbchat.storage.connection')
+            ?? config('laradbchat.connection')
+            ?? config('database.default');
     }
 
     public function log(
@@ -91,10 +95,18 @@ class DatabaseQueryLogger implements QueryLoggerInterface
     }
 
     /**
-     * Get the database connection.
+     * Get the database connection for storage operations.
      */
     protected function getConnection()
     {
-        return DB::connection($this->connection);
+        return DB::connection($this->storageConnection);
+    }
+
+    /**
+     * Get the storage connection name.
+     */
+    public function getStorageConnection(): ?string
+    {
+        return $this->storageConnection;
     }
 }

@@ -8,12 +8,20 @@ use LaraDBChat\LLM\LLMProviderInterface;
 class EmbeddingStore
 {
     protected string $table = 'laradbchat_embeddings';
+    protected ?string $storageConnection;
 
     public function __construct(
         protected LLMProviderInterface $llm,
         protected ?string $connection = null,
+        ?string $storageConnection = null,
         protected array $config = []
     ) {
+        // Storage connection: explicit > storage config > main connection > default
+        $this->storageConnection = $storageConnection
+            ?? config('laradbchat.storage.connection')
+            ?? $connection
+            ?? config('database.default');
+
         $this->config = array_merge([
             'top_k' => 5,
             'similarity_threshold' => 0.3,
@@ -183,10 +191,18 @@ class EmbeddingStore
     }
 
     /**
-     * Get the database connection.
+     * Get the database connection for storage operations.
      */
     protected function getConnection()
     {
-        return DB::connection($this->connection);
+        return DB::connection($this->storageConnection);
+    }
+
+    /**
+     * Get the storage connection name.
+     */
+    public function getStorageConnection(): ?string
+    {
+        return $this->storageConnection;
     }
 }

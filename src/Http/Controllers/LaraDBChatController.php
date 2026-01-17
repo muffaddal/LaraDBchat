@@ -18,6 +18,13 @@ class LaraDBChatController extends Controller
      */
     public function ask(Request $request): JsonResponse
     {
+        // Increase PHP timeout for LLM requests
+        $provider = config('laradbchat.llm.provider', 'ollama');
+        $timeout = config("laradbchat.llm.{$provider}.timeout", 120);
+        if (function_exists('set_time_limit')) {
+            set_time_limit($timeout + 30);
+        }
+
         $request->validate([
             'question' => 'required|string|max:1000',
             'execute' => 'sometimes|boolean',
@@ -55,6 +62,11 @@ class LaraDBChatController extends Controller
      */
     public function train(Request $request): JsonResponse
     {
+        // Training can take a long time, increase timeout significantly
+        if (function_exists('set_time_limit')) {
+            set_time_limit(600); // 10 minutes for training
+        }
+
         $request->validate([
             'fresh' => 'sometimes|boolean',
         ]);

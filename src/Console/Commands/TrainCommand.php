@@ -5,6 +5,7 @@ namespace LaraDBChat\Console\Commands;
 use Illuminate\Console\Command;
 use LaraDBChat\Services\LaraDBChatService;
 use LaraDBChat\Services\ModelAnalyzer;
+use LaraDBChat\Services\SchemaExtractor;
 
 class TrainCommand extends Command
 {
@@ -14,12 +15,56 @@ class TrainCommand extends Command
                             {--skip-migrations : Skip analyzing migrations}
                             {--show-schema : Display the extracted schema}
                             {--deep : Perform deep analysis including models and migrations (recommended)}
-                            {--no-docs-prompt : Skip the documentation prompt after training}';
+                            {--no-docs-prompt : Skip the documentation prompt after training}
+                            {--only=* : Only train these tables (comma-separated or multiple flags)}
+                            {--except=* : Exclude these tables from training (comma-separated or multiple flags)}
+                            {--preview : Preview which tables will be trained without training}
+                            {--select : Interactively select tables to train}';
 
     protected $description = 'Train LaraDBChat on your database schema, models, and migrations';
 
     public function handle(LaraDBChatService $service): int
     {
+        // Get schema extractor and apply runtime filters
+        $schemaExtractor = app(SchemaExtractor::class);
+
+        // Parse table filters
+        $onlyTables = $this->parseTableList($this->option('only'));
+        $exceptTables = $this->parseTableList($this->option('except'));
+
+        // Interactive selection mode
+        if ($this->option('select')) {
+            $onlyTables = $this->interactiveTableSelection($schemaExtractor);
+            if (empty($onlyTables)) {
+                $this->warn('No tables selected. Training cancelled.');
+                return self::SUCCESS;
+            }
+        }
+
+        // Apply runtime filters
+        $schemaExtractor->setRuntimeFilters($onlyTables, $exceptTables);
+
+        // Preview mode - show tables without training
+        if ($this->option('preview')) {
+            return $this->showPreview($schemaExtractor);
+        }
+
+        // Show training summary and confirm
+        $trainable = $schemaExtractor->getTrainableTables();
+        $excluded = $schemaExtractor->getExcludedTables();
+
+        if (empty($trainable)) {
+            $this->error('No tables to train! Check your include/exclude settings.');
+            return self::FAILURE;
+        }
+
+        $this->showTableSummary($trainable, $excluded, $schemaExtractor->getTableMode());
+
+        if (!$this->option('no-interaction') && !$this->confirm('Proceed with training?', true)) {
+            $this->info('Training cancelled.');
+            return self::SUCCESS;
+        }
+
         $this->info('Training LaraDBChat...');
         $this->newLine();
 
@@ -76,6 +121,105 @@ class TrainCommand extends Command
         return $result['success'] ? self::SUCCESS : self::FAILURE;
     }
 
+    /**
+     * Parse table list from CLI options (supports comma-separated and multiple flags).
+     */
+    protected function parseTableList(array $options): array
+    {
+        $tables = [];
+        foreach ($options as $option) {
+            // Support both comma-separated and multiple flags
+            $tables = array_merge($tables, array_map('trim', explode(',', $option)));
+        }
+        return array_filter($tables);
+    }
+
+    /**
+     * Show preview of tables that will be trained.
+     */
+    protected function showPreview(SchemaExtractor $extractor): int
+    {
+        $trainable = $extractor->getTrainableTables();
+        $excluded = $extractor->getExcludedTables();
+
+        $this->info('LaraDBChat Training Preview');
+        $this->line('Mode: ' . $extractor->getTableMode());
+        $this->newLine();
+
+        $this->info('Tables that WILL be trained (' . count($trainable) . '):');
+        if (empty($trainable)) {
+            $this->warn('  No tables will be trained!');
+        } else {
+            $this->table(['Table Name'], array_map(fn($t) => [$t], $trainable));
+        }
+
+        $this->newLine();
+        $this->warn('Tables that will be EXCLUDED (' . count($excluded) . '):');
+        if (empty($excluded)) {
+            $this->line('  No tables excluded.');
+        } else {
+            $this->table(['Table Name'], array_map(fn($t) => [$t], $excluded));
+        }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Show summary of tables to be trained.
+     */
+    protected function showTableSummary(array $trainable, array $excluded, string $mode): void
+    {
+        $this->info('Training Summary');
+        $this->line("Mode: {$mode}");
+        $this->line("Tables to train: " . count($trainable));
+        $this->line("Tables excluded: " . count($excluded));
+
+        if (count($trainable) <= 15) {
+            $this->line("Training: " . implode(', ', $trainable));
+        } else {
+            $this->line("Training: " . implode(', ', array_slice($trainable, 0, 10)) . '... and ' . (count($trainable) - 10) . ' more');
+        }
+        $this->newLine();
+    }
+
+    /**
+     * Interactive table selection.
+     */
+    protected function interactiveTableSelection(SchemaExtractor $extractor): array
+    {
+        $allTables = $extractor->getTables();
+        $defaultSelected = $extractor->getTrainableTables();
+
+        if (empty($allTables)) {
+            $this->error('No tables found in the database.');
+            return [];
+        }
+
+        $this->info('Interactive Table Selection');
+        $this->line("Found " . count($allTables) . " tables in the database.");
+        $this->newLine();
+
+        // Show current defaults
+        $this->line("Default selection: " . count($defaultSelected) . " tables (based on config)");
+        $this->newLine();
+
+        // Use Laravel's choice with multiple selection
+        $selected = $this->choice(
+            'Select tables to train (comma-separated numbers, or "all" for all tables)',
+            array_merge(['all' => '** Select All Tables **'], array_combine($allTables, $allTables)),
+            null,
+            null,
+            true // multiple selection
+        );
+
+        // Handle "all" selection
+        if (in_array('all', $selected) || in_array('** Select All Tables **', $selected)) {
+            return $allTables;
+        }
+
+        return $selected;
+    }
+
     protected function trainDatabaseSchema(LaraDBChatService $service): array
     {
         $this->info('This may take a few minutes depending on your database size.');
@@ -83,7 +227,7 @@ class TrainCommand extends Command
 
         try {
             $schema = $service->getSchema();
-            $this->line("Found " . count($schema) . " tables.");
+            $this->line("Found " . count($schema) . " tables to train.");
 
             $result = $service->train();
 

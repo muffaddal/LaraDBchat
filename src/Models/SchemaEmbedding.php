@@ -8,6 +8,17 @@ class SchemaEmbedding extends Model
 {
     protected $table = 'laradbchat_embeddings';
 
+    /**
+     * Get the database connection for the model.
+     * Uses the configured storage connection for LaraDBChat data.
+     */
+    public function getConnectionName(): ?string
+    {
+        return config('laradbchat.storage.connection')
+            ?? config('laradbchat.connection')
+            ?? config('database.default');
+    }
+
     protected $fillable = [
         'type',
         'identifier',

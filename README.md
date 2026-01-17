@@ -13,6 +13,9 @@ LaraDBChat is a Laravel package that enables you to query your database using na
 - **Safe by Default**: Read-only mode prevents accidental data modifications
 - **Query Logging**: Track all queries with file-based or database logging
 - **API & CLI**: Use via REST API or Artisan commands
+- **Web UI Widget**: Floating chat widget for your web pages (Alpine.js + CSS)
+- **Separate Storage**: Store embeddings/logs in a separate database (SQLite support)
+- **Table Filtering**: Include/exclude specific tables during training
 
 ## Requirements
 
@@ -139,6 +142,18 @@ php artisan laradbchat:train --skip-migrations
 
 # Show extracted schema
 php artisan laradbchat:train --show-schema
+
+# Train only specific tables
+php artisan laradbchat:train --only=users,orders,products
+
+# Exclude specific tables
+php artisan laradbchat:train --except=logs,cache,sessions
+
+# Preview which tables will be trained (without training)
+php artisan laradbchat:train --preview
+
+# Interactive table selection
+php artisan laradbchat:train --select
 ```
 
 ### Adding Business Documentation
@@ -305,6 +320,104 @@ Content-Type: application/json
 }
 ```
 
+## Web UI Widget
+
+LaraDBChat includes a floating chat widget you can add to any page.
+
+### Setup
+
+1. Publish the assets:
+```bash
+php artisan vendor:publish --tag=laradbchat-assets
+```
+
+2. Include the CSS, JS, and Alpine.js in your layout:
+```blade
+<head>
+    <!-- LaraDBChat CSS -->
+    <link rel="stylesheet" href="{{ asset('vendor/laradbchat/css/laradbchat.css') }}">
+
+    <!-- Alpine.js (if not already included) -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- LaraDBChat JS -->
+    <script src="{{ asset('vendor/laradbchat/js/laradbchat.js') }}"></script>
+</head>
+```
+
+3. Add the widget component to your layout:
+```blade
+<x-laradbchat-widget />
+```
+
+### Widget Options
+
+```blade
+<!-- Default position (bottom-right) -->
+<x-laradbchat-widget />
+
+<!-- Custom position -->
+<x-laradbchat-widget position="bottom-left" />
+<x-laradbchat-widget position="top-right" />
+
+<!-- Hide SQL in responses -->
+<x-laradbchat-widget :show-sql="false" />
+
+<!-- Custom title and placeholder -->
+<x-laradbchat-widget
+    title="Data Assistant"
+    placeholder="Ask me anything..."
+/>
+```
+
+### Widget Configuration
+
+Configure the widget in your `.env` or `config/laradbchat.php`:
+
+```env
+LARADBCHAT_WIDGET_ENABLED=true
+LARADBCHAT_WIDGET_POSITION=bottom-right
+LARADBCHAT_WIDGET_SHOW_SQL=true
+LARADBCHAT_WIDGET_TITLE="Database Assistant"
+LARADBCHAT_WIDGET_PRIMARY=#3B82F6
+```
+
+## Separate Storage Connection
+
+Store LaraDBChat's internal data (embeddings, query logs) in a separate database to keep your main database clean.
+
+### SQLite Storage (Recommended)
+
+```env
+LARADBCHAT_STORAGE_CONNECTION=laradbchat_sqlite
+LARADBCHAT_SQLITE_PATH=/path/to/storage/laradbchat/database.sqlite
+```
+
+The SQLite file is auto-created if it doesn't exist.
+
+### Custom Database Connection
+
+```env
+LARADBCHAT_STORAGE_CONNECTION=laradbchat_mysql
+```
+
+Then define the connection in `config/database.php`:
+```php
+'laradbchat_mysql' => [
+    'driver' => 'mysql',
+    'host' => env('LARADBCHAT_DB_HOST', '127.0.0.1'),
+    'database' => env('LARADBCHAT_DB_DATABASE', 'laradbchat'),
+    // ...
+],
+```
+
+### Run Migrations
+
+After configuring storage, run migrations on the correct connection:
+```bash
+php artisan laradbchat:migrate
+```
+
 ## Configuration Options
 
 Publish the config file:
@@ -322,6 +435,12 @@ return [
         // Provider-specific settings...
     ],
 
+    // Separate storage for embeddings and logs
+    'storage' => [
+        'connection' => env('LARADBCHAT_STORAGE_CONNECTION', null),
+        'sqlite_path' => storage_path('laradbchat/database.sqlite'),
+    ],
+
     'execution' => [
         'enabled' => true,      // Execute generated queries
         'read_only' => true,    // Only allow SELECT
@@ -335,11 +454,22 @@ return [
     ],
 
     'training' => [
-        'exclude_tables' => [   // Tables to skip during training
+        'table_mode' => 'exclude',  // 'all', 'exclude', or 'include'
+        'exclude_tables' => [       // Tables to skip (when mode = 'exclude')
             'migrations',
             'password_resets',
             'sessions',
-            // ...
+        ],
+        'include_tables' => [],     // Tables to train (when mode = 'include')
+    ],
+
+    'widget' => [
+        'enabled' => true,
+        'position' => 'bottom-right',
+        'show_sql' => true,
+        'theme' => [
+            'primary' => '#3B82F6',
+            'secondary' => '#1E40AF',
         ],
     ],
 ];

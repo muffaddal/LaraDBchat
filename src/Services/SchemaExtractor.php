@@ -9,6 +9,8 @@ class SchemaExtractor
 {
     protected string $connection;
     protected array $config;
+    protected array $runtimeIncludeTables = [];
+    protected array $runtimeExcludeTables = [];
 
     public function __construct(?string $connection = null, array $config = [])
     {
@@ -16,8 +18,39 @@ class SchemaExtractor
         $this->config = array_merge([
             'include_indexes' => true,
             'include_foreign_keys' => true,
+            'table_mode' => 'exclude',
             'exclude_tables' => [],
+            'include_tables' => [],
         ], $config);
+    }
+
+    /**
+     * Set runtime table filters (for CLI --only and --except flags).
+     * Runtime filters take precedence over config settings.
+     */
+    public function setRuntimeFilters(array $includeTables = [], array $excludeTables = []): self
+    {
+        $this->runtimeIncludeTables = array_filter($includeTables);
+        $this->runtimeExcludeTables = array_filter($excludeTables);
+        return $this;
+    }
+
+    /**
+     * Get the list of tables that will be trained (for preview).
+     */
+    public function getTrainableTables(): array
+    {
+        $allTables = $this->getTables();
+        return array_values(array_filter($allTables, fn($table) => !$this->shouldExcludeTable($table)));
+    }
+
+    /**
+     * Get the list of tables that will be excluded (for preview).
+     */
+    public function getExcludedTables(): array
+    {
+        $allTables = $this->getTables();
+        return array_values(array_filter($allTables, fn($table) => $this->shouldExcludeTable($table)));
     }
 
     /**
@@ -251,10 +284,43 @@ class SchemaExtractor
 
     /**
      * Check if a table should be excluded from extraction.
+     * Priority: runtime --only > runtime --except > config table_mode
      */
     protected function shouldExcludeTable(string $table): bool
     {
-        return in_array($table, $this->config['exclude_tables']);
+        // Runtime --only flag takes highest priority (include mode)
+        if (!empty($this->runtimeIncludeTables)) {
+            return !in_array($table, $this->runtimeIncludeTables);
+        }
+
+        // Runtime --except flag is additive to config excludes
+        if (!empty($this->runtimeExcludeTables) && in_array($table, $this->runtimeExcludeTables)) {
+            return true;
+        }
+
+        // Config-based filtering
+        $mode = $this->config['table_mode'] ?? 'exclude';
+
+        return match ($mode) {
+            'all' => false,
+            'include' => !in_array($table, $this->config['include_tables'] ?? []),
+            'exclude' => in_array($table, $this->config['exclude_tables'] ?? []),
+            default => in_array($table, $this->config['exclude_tables'] ?? []),
+        };
+    }
+
+    /**
+     * Get the current table filtering mode.
+     */
+    public function getTableMode(): string
+    {
+        if (!empty($this->runtimeIncludeTables)) {
+            return 'include (runtime)';
+        }
+        if (!empty($this->runtimeExcludeTables)) {
+            return 'exclude (runtime + config)';
+        }
+        return $this->config['table_mode'] ?? 'exclude';
     }
 
     /**
